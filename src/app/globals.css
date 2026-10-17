@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #4f46e5;
+  --color-brand-600: #4338ca;
+  --color-brand-700: #3730a3;
+  --color-brand-900: #1e1b4b;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+/* Notebook document typography (Tiptap/ProseMirror content). */
+.prose-notebook {
+  @apply text-[15px] leading-7 text-slate-800;
+}
+.prose-notebook > * + * {
+  @apply mt-3;
+}
+.prose-notebook h1 {
+  @apply mt-6 text-2xl font-semibold;
+}
+.prose-notebook h2 {
+  @apply mt-5 text-xl font-semibold;
+}
+.prose-notebook h3 {
+  @apply mt-4 text-lg font-semibold;
+}
+.prose-notebook ul {
+  @apply list-disc pl-6;
+}
+.prose-notebook ol {
+  @apply list-decimal pl-6;
+}
+.prose-notebook blockquote {
+  @apply border-l-4 border-slate-200 pl-4 text-slate-600;
+}
+.prose-notebook pre {
+  @apply rounded-md bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100;
+}
+.prose-notebook code {
+  @apply rounded bg-slate-100 px-1 font-mono text-[0.9em];
+}
+.prose-notebook pre code {
+  @apply bg-transparent p-0;
+}
+.prose-notebook a:not([data-mention]) {
+  @apply text-brand-600 underline;
+}
+.prose-notebook table {
+  @apply w-full border-collapse text-sm;
+}
+.prose-notebook th,
+.prose-notebook td {
+  @apply border border-slate-300 px-2 py-1 align-top;
+}
+.prose-notebook th {
+  @apply bg-slate-50 text-left font-semibold;
+}
+.prose-notebook .selectedCell {
+  @apply bg-brand-50;
+}
+.prose-notebook p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-slate-400;
+}
+.prose-notebook .ProseMirror-selectednode > div {
+  @apply ring-2 ring-brand-500;
+}

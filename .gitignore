@@ -1,0 +1,11 @@
+# Raw material extracted from Benchling (internal schema, their API specs, module lists).
+# Kept local for reference only; do not commit or copy into Benchmuse source.
+research/
+
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+# local PGlite database
+.data/
