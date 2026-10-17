@@ -207,36 +207,38 @@ class Parser {
   }
 
   private multiplicative(): Node {
-    let left = this.power();
+    let left = this.unary();
     while (this.peek().type === "operator" && ["*", "/"].includes(this.peek().value)) {
       const operator = this.next().value;
-      left = { kind: "binary", operator, left, right: this.power() };
+      left = { kind: "binary", operator, left, right: this.unary() };
     }
     return left;
   }
 
   /**
-   * Powers sit above unary sign, which is what makes `-2^2` equal 4 rather than -4.
+   * Exponentiation binds tighter than a leading sign, so `-2^2` is -(2^2) = -4.
    *
-   * That is the maths convention reversed, but it is what Excel, Google Sheets and LibreOffice
-   * all do, and a formula pasted from a scientist's spreadsheet must give the same answer here.
+   * Excel, Google Sheets and LibreOffice all give 4 here, having inherited the bug from VisiCalc.
+   * Benchmuse does not copy it: a notebook records real quantities, and a formula that disagrees
+   * with the arithmetic a scientist did on paper is worse than one that disagrees with Excel.
    */
-  private power(): Node {
-    const base = this.unary();
-    if (this.peek().type === "operator" && this.peek().value === "^") {
-      this.next();
-      // Right-associative, so 2^3^2 is 2^(3^2).
-      return { kind: "binary", operator: "^", left: base, right: this.power() };
-    }
-    return base;
-  }
-
   private unary(): Node {
     if (this.peek().type === "operator" && ["-", "+"].includes(this.peek().value)) {
       const operator = this.next().value as "-" | "+";
       return { kind: "unary", operator, operand: this.unary() };
     }
-    return this.postfix();
+    return this.power();
+  }
+
+  private power(): Node {
+    const base = this.postfix();
+    if (this.peek().type === "operator" && this.peek().value === "^") {
+      this.next();
+      // Right-associative, so 2^3^2 is 2^(3^2). The exponent goes through `unary` so that a
+      // signed exponent such as 2^-3 still parses.
+      return { kind: "binary", operator: "^", left: base, right: this.unary() };
+    }
+    return base;
   }
 
   private postfix(): Node {

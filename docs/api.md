@@ -91,11 +91,14 @@ Limits: 2,000 rows, 60 columns, 10,000 characters per cell. Column types are `te
 `date`, `checkbox`, `select`, `entity` and `formula`; a column's type decides how its literals
 are parsed, so `"5"` in a number column is the number 5.
 
-Formulas use the Excel dialect (`=SUM(A1:A10)`, `=IF(C2>5,"high","low")`, `$` to lock a
+Formulas use the familiar spreadsheet syntax (`=SUM(A1:A10)`, `=IF(C2>5,"high","low")`, `$` to lock a
 reference) plus lab functions backed by the sequence engine — `TM`, `GC`, `REVCOMP`,
 `TRANSLATE`, `DILUTE`, `MOLARITY`, `NGTOPMOL`, `SEM`, `CV`. Errors are returned as
 `{ "code": "#DIV/0!", "detail": "…" }` rather than throwing; a self-referencing formula reports
 `#CYCLE!` instead of hanging.
+
+One deliberate difference from Excel: `=-2^2` evaluates to **-4**, not 4. Exponentiation binds
+tighter than a leading sign, as it does in arithmetic.
 
 A table whose block is deleted from the document is kept for 24 hours before being removed, so
 an undo of the deletion still finds its data.

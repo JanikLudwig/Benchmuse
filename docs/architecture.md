@@ -78,9 +78,10 @@ script in our origin.
 dependencies, so the browser evaluates a grid exactly as the server does and the two never
 disagree.
 
-- **ast.ts** — tokenizer and recursive-descent parser. Precedence matches Excel, Google Sheets
-  and LibreOffice rather than mathematical convention: unary minus binds tighter than `^`, so
-  `-2^2` is 4. A formula pasted out of a scientist's spreadsheet has to give the same answer.
+- **ast.ts** — tokenizer and recursive-descent parser. Precedence is the arithmetic one, which
+  means one deliberate departure from spreadsheets: `=-2^2` is **-4** here, where Excel, Sheets
+  and LibreOffice all answer 4 (a VisiCalc inheritance). A notebook records real quantities and
+  has to agree with what was worked out on paper, so the maths wins over bug-compatibility.
   Also holds the fill-down rewrite, which shifts rows in references while leaving `$`-locked
   rows, quoted text, and lookalikes such as the `G10` in `LOG10` untouched.
 - **functions.ts** — ~60 functions. The molecular-biology group calls straight into

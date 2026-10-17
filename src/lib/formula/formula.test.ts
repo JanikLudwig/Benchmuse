@@ -53,12 +53,28 @@ describe("arithmetic", () => {
   it("follows operator precedence", () => {
     expect(run("=1+2*3")).toBe(7);
     expect(run("=(1+2)*3")).toBe(9);
-    expect(run("=2^3^2")).toBe(512); // right-associative, as in Excel
-    // Spreadsheets bind unary minus tighter than the power, so this is (-2)^2, not -(2^2).
-    expect(run("=-2^2")).toBe(4);
+    expect(run("=2^3^2")).toBe(512); // right-associative: 2^(3^2)
     expect(run("=2^-1")).toBe(0.5);
-    expect(run("=-2^3")).toBe(-8);
     expect(run("=10/4")).toBe(2.5);
+  });
+
+  /**
+   * Excel, Google Sheets and LibreOffice all return 4 for `=-2^2`, having inherited the
+   * precedence bug from VisiCalc. Benchmuse follows the arithmetic instead, because a notebook
+   * records real quantities and has to agree with what was worked out on paper.
+   */
+  it("binds exponentiation tighter than a leading sign, as arithmetic does", () => {
+    expect(run("=-2^2")).toBe(-4);
+    expect(run("=-2^3")).toBe(-8);
+    expect(run("=-3^2")).toBe(-9);
+    // Parentheses still say what they say.
+    expect(run("=(-2)^2")).toBe(4);
+    // A signed exponent still parses, and binds to the power rather than the base.
+    expect(run("=2^-2")).toBe(0.25);
+    expect(run("=-2^-2")).toBe(-0.25);
+    // The sign distributes over a product the same way.
+    expect(run("=-2^2*3")).toBe(-12);
+    expect(run("=1-2^2")).toBe(-3);
   });
 
   it("handles percentages and negatives", () => {
