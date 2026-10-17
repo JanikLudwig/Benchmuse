@@ -54,12 +54,51 @@ receive `403 forbidden` on any write.
 | POST | `/entities/:id/move` | `{ folderId }` | entity |
 | POST | `/entries` | `{ name, folderId, schemaId?, fields?, content? }` | entry |
 | GET / PATCH | `/entries/:id` | `{ name?, fields?, content? }` (`content` is a Tiptap/ProseMirror doc) | entry |
+| GET | `/tables` | `?entryId=` | `{ items }`, each evaluated |
+| POST | `/tables` | `{ entryId, name?, columns?, rows? }` | evaluated table |
+| GET | `/tables/:id` | | evaluated table |
+| PUT | `/tables/:id` | `{ name?, columns?, rows? }` — the whole grid | evaluated table |
+| DELETE | `/tables/:id` | | `{ ok: true }` |
+| GET | `/tables/:id/csv` | | CSV download, formulas replaced by values |
 | GET | `/results` | `?entryId=&schemaId=` | `{ items }` in entry order |
 | POST | `/results` | `{ schemaId, entryId?, rows: [fields…] }` (1–1000 rows, all-or-nothing) | `{ items }` |
 | GET | `/search` | `?q=&filter=&sort=&limit=&offset=` | `{ items, total, limit, offset }` |
 | POST | `/archive` | `{ ids, reason }` | `{ archived }` |
 | POST | `/unarchive` | `{ ids }` | `{ unarchived }` |
 | GET | `/audit/:objectId` | | `{ items }` newest first, with field-level `changes` |
+
+## Notebook tables
+
+A notebook table is a spreadsheet embedded in an entry. The entry's document holds only
+`{ type: "dataTable", attrs: { tableId } }`; the grid itself lives in `/tables/:id`.
+
+Cells store **the text that was typed**, never the computed result. Anything beginning with `=`
+is a formula, and the server evaluates the grid on every read, so a response carries both:
+
+```jsonc
+{
+  "columns": [{ "id": "…", "name": "Per reaction", "type": "number", "unit": "µL", "decimals": 2 }],
+  "rows":   [["5× Q5 buffer", "5", "1", "=DILUTE(B1,C1,$B$10)"]],  // what was typed
+  "values": [[{ "raw": "…", "value": 10, "isFormula": true }]]      // what it means now
+}
+```
+
+Writes replace the whole grid rather than one cell, because a single spreadsheet edit — a paste,
+a fill, an inserted column — moves many cells at once, and one authoritative write avoids the
+ordering problems a per-cell protocol would bring.
+
+Limits: 2,000 rows, 60 columns, 10,000 characters per cell. Column types are `text`, `number`,
+`date`, `checkbox`, `select`, `entity` and `formula`; a column's type decides how its literals
+are parsed, so `"5"` in a number column is the number 5.
+
+Formulas use the Excel dialect (`=SUM(A1:A10)`, `=IF(C2>5,"high","low")`, `$` to lock a
+reference) plus lab functions backed by the sequence engine — `TM`, `GC`, `REVCOMP`,
+`TRANSLATE`, `DILUTE`, `MOLARITY`, `NGTOPMOL`, `SEM`, `CV`. Errors are returned as
+`{ "code": "#DIV/0!", "detail": "…" }` rather than throwing; a self-referencing formula reports
+`#CYCLE!` instead of hanging.
+
+A table whose block is deleted from the document is kept for 24 hours before being removed, so
+an undo of the deletion still finds its data.
 
 ## Files, import and export
 

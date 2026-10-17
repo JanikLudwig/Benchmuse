@@ -26,6 +26,8 @@ export const ID_PREFIXES = {
   session: "ses",
   token: "tok",
   apiKey: "key",
+  table: "tbl",
+  column: "col",
   auditEvent: "aud",
 } as const;
 

@@ -66,9 +66,27 @@ aligned on either strand (including across the origin), and each difference is r
 HGVS label, its effect on any overlapping coding sequence (synonymous, missense, nonsense,
 frameshift), the reads supporting it, and the chromatogram trace behind the call.
 
+### Electronic lab notebook
+Entries are rich documents: headings, lists, @-mentions of registry entities, images, file
+attachments and dates, all reachable from a `/` menu without leaving the keyboard. Screenshots
+and files can also be pasted or dragged straight in.
+
+Entries embed **spreadsheets with formulas**, which behave the way a scientist expects from
+Excel: type to replace a cell, `Enter`/`Tab` to commit and move, `Ctrl+D` to fill down, drag to
+select, and paste a block straight out of Excel. A formula bar shows what is really in the cell.
+
+Alongside the usual `SUM`/`AVERAGE`/`IF`, the formula language knows molecular biology — `TM`,
+`GC`, `REVCOMP`, `TRANSLATE`, `DILUTE` (C1V1), `MOLARITY`, `NGTOPMOL`, `SEM`, `CV` — because the
+same sequence engine backs both. The demo entry ships with a PCR master mix whose every volume
+derives from two cells: change the reaction volume or the number of reactions and the sheet
+rescales, with no formula edited.
+
+Cells store the text that was typed, never a computed snapshot, so a table always shows what its
+formulas mean now. Exporting gives CSV with the values, which is what a statistician wants.
+
 ### Shared foundations
 Projects and folders, tenant-defined schemas with typed fields, a registry with gap-free IDs,
-a notebook with entity mentions and structured results tables, search with a URL filter grammar,
+structured results tables validated against a schema, search with a URL filter grammar,
 archive-with-reason instead of deletion, and a field-level audit trail on everything.
 
 ## Authentication
@@ -85,13 +103,14 @@ signed-out visitors to the sign-in page as a convenience; it is not the security
 ```
 src/bio/              the sequence engine: formats, enzymes, thermodynamics, primers,
                       CRISPR, assembly, alignment, variant calling. No app dependencies.
+src/lib/formula/      the spreadsheet language: tokenizer, parser, evaluator, functions
 src/server/domain/    IDs, the field engine, name templates, the filter grammar
 src/server/services/  use-cases on a db handle: enforce rules, write audit events
 src/server/db/        Drizzle schema, migrations, PGlite/pg client, seed
 src/server/api/       shared route plumbing (auth, errors, request schemas)
 src/app/api/v1/       REST route handlers (thin)
 src/app/(app)/        signed-in pages; src/app/(auth)/ sign-in and first-run setup
-src/components/       UI, including sequence/ and alignment/ viewers
+src/components/       UI, including sequence/, alignment/ and notebook/ (the ELN)
 docs/                 architecture, API, bio engine, Benchling teardown
 ```
 

@@ -5,6 +5,7 @@ import { newId } from "../domain/ids";
 import { diff, recordAudit, type Actor } from "./audit";
 import { NotFoundError, ValidationError } from "./errors";
 import { validateFieldsAgainstSchema } from "./entities";
+import { pruneOrphanTables } from "./notebookTables";
 import { getWritableFolder, requireName } from "./projects";
 import { getSchema } from "./schemas";
 
@@ -22,18 +23,33 @@ function checkContent(content: unknown): Record<string, unknown> {
   return doc as Record<string, unknown>;
 }
 
-/** IDs of entities mentioned in a document (`entityMention` nodes), for backlinks and validation. */
-export function mentionedEntityIds(content: unknown): string[] {
-  const ids = new Set<string>();
+/** Collect one attribute from every node of a given type in a document. */
+function collectAttr(content: unknown, types: readonly string[], attr: string): string[] {
+  const found = new Set<string>();
   const walk = (node: DocNode) => {
-    if (node?.type === "entityMention") {
-      const id = (node.attrs as { id?: unknown } | undefined)?.id;
-      if (typeof id === "string") ids.add(id);
+    if (typeof node?.type === "string" && types.includes(node.type)) {
+      const value = (node.attrs as Record<string, unknown> | undefined)?.[attr];
+      if (typeof value === "string" && value) found.add(value);
     }
     if (Array.isArray(node?.content)) node.content.forEach((n) => walk(n as DocNode));
   };
   walk(content as DocNode);
-  return [...ids];
+  return [...found];
+}
+
+/** IDs of entities mentioned in a document (`entityMention` nodes), for backlinks and validation. */
+export function mentionedEntityIds(content: unknown): string[] {
+  return collectAttr(content, ["entityMention"], "id");
+}
+
+/** Spreadsheets still present in a document, so ones whose block was deleted can be cleaned up. */
+export function referencedTableIds(content: unknown): string[] {
+  return collectAttr(content, ["dataTable"], "tableId");
+}
+
+/** Files a document displays or links to, for usage reporting and delete protection. */
+export function referencedFileIds(content: unknown): string[] {
+  return collectAttr(content, ["labImage", "attachment"], "fileId");
 }
 
 export async function createEntry(
@@ -97,6 +113,11 @@ export async function updateEntry(
     }
     if (Object.keys(changes).length && !(await isContinuingEditSession(tx, actor, id, changes))) {
       await recordAudit(tx, actor, id, "update", changes);
+    }
+    // A spreadsheet whose block was deleted from the document has nothing left pointing at it.
+    // Pruning is deliberately not immediate: see ORPHAN_GRACE_MS.
+    if (patch.content !== undefined) {
+      await pruneOrphanTables(tx, id, referencedTableIds(after!.content));
     }
     return after!;
   });

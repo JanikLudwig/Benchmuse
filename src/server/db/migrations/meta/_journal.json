@@ -15,6 +15,13 @@
       "when": 1792251996439,
       "tag": "0001_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792253170779,
+      "tag": "0002_notebook_tables",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,8 @@ src/
     api/v1/...   REST route handlers (thin: parse, then service, then JSON)
     (app)/...    UI pages
   components/    UI components
+  lib/
+    formula/     the spreadsheet language, shared by the browser and the server
 ```
 
 ## Core model (v1)
@@ -41,13 +43,54 @@ src/
 - **Schema** (`sch_`) with `kind` ∈ `entity | entry | result | container | box | plate | location`. A schema has ordered **fields** (`fld_`). An entity schema has an optional **registry prefix** and **name template** (e.g. `PLS-{number:4}`).
 - **Field types:** `text, long_text, integer, float, boolean, date, datetime, dropdown, json, entity_link`, each optionally `multi` and `required`. Link fields target a schema or a kind.
 - **Entity** (`ent_`) has `entityType` ∈ `custom | dna_sequence | aa_sequence`. Sequence types carry `bases`/`aminoAcids` and `annotations`. Registration assigns an immutable `registryId` from the schema's name template.
-- **Entry** (`etr_`): a notebook document (Tiptap JSON). Rich content embeds entity mentions and **structured result tables** bound to result schemas.
+- **Entry** (`etr_`): a notebook document (Tiptap JSON). Rich content embeds entity mentions, **structured result tables** bound to result schemas, **spreadsheets** (`tbl_`), images and file attachments.
+- **Notebook table** (`tbl_`): a spreadsheet belonging to an entry. Stores `columns` (name, type, unit, decimals) and `rows` of raw cell text. Formulas are evaluated on read, never stored computed.
 - **Result** (`res_`): a row of a result schema, linked to an entry and to entities.
 - **Inventory:** Location (`loc_`, nestable) → Box/Plate (`box_`/`plt_`, grid) → Container (`con_`) → contents (entity + quantity).
 - **Audit event** for every mutation: object ID, actor, action, field-level diff.
 - **Archive:** `archivedAt` + `archiveReason` ∈ `made_in_error | retired | expended | shipped | contaminated | expired | missing | other`.
 
 Single-tenant per deployment (like Benchling). Auth starts as a dev-mode user behind an `actor` abstraction, so real auth and permissions slot in without touching services.
+
+## Documents and their payloads
+
+An entry's document holds *references*, not payloads. A spreadsheet is
+`{ type: "dataTable", attrs: { tableId } }`; an image is `{ type: "labImage", attrs: { fileId } }`.
+Three things follow from that:
+
+- A 20 MB gel photo never travels with the entry's JSON on every autosave.
+- The same file can be referenced twice without being stored twice (blobs are content-addressed
+  by SHA-256).
+- A table's cells stay queryable and exportable outside the notebook.
+
+Deleting a block only removes the reference. Orphaned tables are pruned on save, but only after a
+24-hour grace period, because autosave runs while someone is still editing and an eager prune
+would make `Ctrl+Z` bring the block back empty.
+
+Uploaded bytes are served from one authenticated endpoint. Only a raster allowlist
+(`png/jpeg/gif/webp/avif`) is served `inline`; everything else, SVG included, is forced to
+`attachment` with `application/octet-stream` and `nosniff`, so an uploaded file can never execute
+script in our origin.
+
+## The formula engine
+
+`src/lib/formula/` is a self-contained Excel-dialect spreadsheet language with no database or UI
+dependencies, so the browser evaluates a grid exactly as the server does and the two never
+disagree.
+
+- **ast.ts** — tokenizer and recursive-descent parser. Precedence matches Excel, Google Sheets
+  and LibreOffice rather than mathematical convention: unary minus binds tighter than `^`, so
+  `-2^2` is 4. A formula pasted out of a scientist's spreadsheet has to give the same answer.
+  Also holds the fill-down rewrite, which shifts rows in references while leaving `$`-locked
+  rows, quoted text, and lookalikes such as the `G10` in `LOG10` untouched.
+- **functions.ts** — ~60 functions. The molecular-biology group calls straight into
+  `src/bio`, so `TM()` in a cell is the same nearest-neighbour calculation the primer designer
+  uses.
+- **evaluate.ts** — memoised evaluation over the dependency graph, with cycle detection
+  (`#CYCLE!`) and column-type-aware parsing of literals.
+
+Errors are values, not exceptions: a cell holds `#DIV/0!` or `#NAME?` and the rest of the sheet
+keeps computing, which is what a spreadsheet user expects.
 
 ## The sequence engine
 

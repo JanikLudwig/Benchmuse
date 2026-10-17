@@ -431,3 +431,44 @@ export const lineage = pgTable(
   },
   (t) => [index("lineage_child_idx").on(t.childEntityId), index("lineage_parent_idx").on(t.parentEntityId)],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Notebook data tables
+
+export const TABLE_COLUMN_TYPES = ["text", "number", "date", "checkbox", "select", "entity", "formula"] as const;
+export type TableColumnType = (typeof TABLE_COLUMN_TYPES)[number];
+
+export interface TableColumn {
+  id: string;
+  name: string;
+  type: TableColumnType;
+  /** shown after the name and in calculations, e.g. "µL", "ng/µL", "mM" */
+  unit?: string;
+  width?: number;
+  /** for select columns */
+  options?: string[];
+  /** decimal places for number columns */
+  decimals?: number;
+}
+
+/**
+ * A spreadsheet embedded in a notebook entry.
+ *
+ * Cells hold raw text exactly as typed, as a spreadsheet does: anything starting with `=` is a
+ * formula, evaluated on read. Rows are stored row-major so cell references line up with the
+ * grid the scientist sees.
+ */
+export const notebookTables = pgTable(
+  "notebook_tables",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => entries.id),
+    name: text("name").notNull().default("Table"),
+    columns: jsonb("columns").$type<TableColumn[]>().notNull().default([]),
+    rows: jsonb("rows").$type<string[][]>().notNull().default([]),
+    ...baseColumns(),
+  },
+  (t) => [index("notebook_tables_entry_idx").on(t.entryId)],
+);

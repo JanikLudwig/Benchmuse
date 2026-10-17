@@ -15,7 +15,8 @@ import { GFP_CDS, GFP_PROTEIN, PUC19_MCS } from "@/bio/testPlasmid";
 import { createAlignment } from "../services/alignments";
 import { createConstruct } from "../services/cloning";
 import { createEntity, registerEntity } from "../services/entities";
-import { createEntry, createResults } from "../services/entries";
+import { createEntry, createResults, updateEntry } from "../services/entries";
+import { createTable } from "../services/notebookTables";
 import { createFolder, createProject, getProjectRootFolder } from "../services/projects";
 import { createDropdown, createSchema } from "../services/schemas";
 import { createUser } from "../services/auth";
@@ -347,13 +348,14 @@ async function main() {
     type: "entityMention",
     attrs: { id: entity.id, label: `${entity.name} (${registryId})` },
   });
-  const entry = await createEntry(db, actor, {
-    name: "2026-10-17 IPTG induction curve",
-    folderId: notebook.id,
-    content: {
-      type: "doc",
-      content: [
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Aim" }] },
+  /**
+   * The document is built twice: once to create the entry, and again once the spreadsheet it
+   * embeds has an id. A table has to belong to an entry before it can be referenced from one.
+   */
+  const buildEntryDoc = (mixTableId: string | null) => ({
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Aim" }] },
         {
           type: "paragraph",
           content: [
@@ -364,24 +366,72 @@ async function main() {
             { type: "text", text: " across IPTG concentrations." },
           ],
         },
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Method" }] },
-        {
-          type: "orderedList",
-          content: [
-            "Overnight cultures in LB + ampicillin (100 µg/mL), 37 °C.",
-            "Dilute 1:100, grow to OD600 ≈ 0.5, induce with IPTG.",
-            "Express 4 h at 30 °C; read OD600 and fluorescence (ex 485 / em 510).",
-          ].map((text) => ({ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text }] }] })),
-        },
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Results" }] },
-        { type: "resultsTable", attrs: { schemaId: assaySchema.id } },
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "Fluorescence saturates above 0.5 mM IPTG; the empty vector stays at background." }],
-        },
-      ],
-    },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Method" }] },
+      {
+        type: "orderedList",
+        content: [
+          "Overnight cultures in LB + ampicillin (100 µg/mL), 37 °C.",
+          "Dilute 1:100, grow to OD600 ≈ 0.5, induce with IPTG.",
+          "Express 4 h at 30 °C; read OD600 and fluorescence (ex 485 / em 510).",
+        ].map((text) => ({ type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text }] }] })),
+      },
+      ...(mixTableId
+        ? [
+            { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Colony PCR check" }] },
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: "Mix scales from the two cells at the bottom: change the reaction volume or the number of reactions and every volume follows.",
+                },
+              ],
+            },
+            { type: "dataTable", attrs: { tableId: mixTableId } },
+          ]
+        : []),
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Results" }] },
+      { type: "resultsTable", attrs: { schemaId: assaySchema.id } },
+      {
+        type: "paragraph",
+        content: [{ type: "text", text: "Fluorescence saturates above 0.5 mM IPTG; the empty vector stays at background." }],
+      },
+    ],
   });
+
+  const entry = await createEntry(db, actor, {
+    name: "2026-10-17 IPTG induction curve",
+    folderId: notebook.id,
+    content: buildEntryDoc(null),
+  });
+
+  // A PCR master mix: the formulas do the C1V1 arithmetic that otherwise gets done on paper.
+  const mixTable = await createTable(db, actor, {
+    entryId: entry.id,
+    name: "Q5 colony PCR master mix",
+    columns: [
+      { name: "Component", type: "text", width: 220 },
+      { name: "Stock", type: "number" },
+      { name: "Final", type: "number" },
+      { name: "Per reaction", type: "number", unit: "µL", decimals: 2 },
+      { name: "Master mix", type: "number", unit: "µL", decimals: 1 },
+    ],
+    rows: [
+      ["5× Q5 reaction buffer", "5", "1", "=DILUTE(B1,C1,$B$10)", "=D1*$B$11"],
+      ["dNTP mix (mM each)", "10", "0.2", "=DILUTE(B2,C2,$B$10)", "=D2*$B$11"],
+      ["Primer M13 fwd (µM)", "10", "0.5", "=DILUTE(B3,C3,$B$10)", "=D3*$B$11"],
+      ["Primer M13 rev (µM)", "10", "0.5", "=DILUTE(B4,C4,$B$10)", "=D4*$B$11"],
+      ["Template colony lysate (ng/µL)", "10", "0.2", "=DILUTE(B5,C5,$B$10)", "=D5*$B$11"],
+      ["Q5 polymerase (U/µL)", "2", "0.02", "=DILUTE(B6,C6,$B$10)", "=D6*$B$11"],
+      ["Nuclease-free water", "", "", "=$B$10-SUM(D1:D6)", "=D7*$B$11"],
+      ["Total", "", "", "=SUM(D1:D7)", "=SUM(E1:E7)"],
+      ["", "", "", "", ""],
+      ["Reaction volume (µL)", "50", "", "", ""],
+      ["Reactions, including dead volume", "4", "", "", ""],
+    ],
+  });
+  await updateEntry(db, actor, entry.id, { content: buildEntryDoc(mixTable.id) });
+
   await createResults(db, actor, {
     schemaId: assaySchema.id,
     entryId: entry.id,
