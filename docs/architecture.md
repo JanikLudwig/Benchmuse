@@ -40,13 +40,13 @@ src/
 ## Core model (v1)
 
 - **Project → Folder (tree) → items.** Items are entities, entries, and so on; each has a `folderId`.
-- **Schema** (`sch_`) with `kind` ∈ `entity | entry | result | container | box | plate | location`. A schema has ordered **fields** (`fld_`). An entity schema has an optional **registry prefix** and **name template** (e.g. `PLS-{number:4}`).
+- **Schema** (`sch_`) with `kind` ∈ `entity | entry | result`. (Inventory kinds — container, box, plate, location — are planned, not built; see Roadmap.) A schema has ordered **fields** (`fld_`). An entity schema has an optional **registry prefix** and **name template** (e.g. `PLS-{number:4}`).
 - **Field types:** `text, long_text, integer, float, boolean, date, datetime, dropdown, json, entity_link`, each optionally `multi` and `required`. Link fields target a schema or a kind.
 - **Entity** (`ent_`) has `entityType` ∈ `custom | dna_sequence | aa_sequence`. Sequence types carry `bases`/`aminoAcids` and `annotations`. Registration assigns an immutable `registryId` from the schema's name template.
 - **Entry** (`etr_`): a notebook document (Tiptap JSON). Rich content embeds entity mentions, **structured result tables** bound to result schemas, **spreadsheets** (`tbl_`), images and file attachments.
 - **Notebook table** (`tbl_`): a spreadsheet belonging to an entry. Stores `columns` (name, type, unit, decimals) and `rows` of raw cell text. Formulas are evaluated on read, never stored computed.
 - **Result** (`res_`): a row of a result schema, linked to an entry and to entities.
-- **Inventory:** Location (`loc_`, nestable) → Box/Plate (`box_`/`plt_`, grid) → Container (`con_`) → contents (entity + quantity).
+- **Inventory** *(designed, not built)*: Location (`loc_`, nestable) → Box/Plate (`box_`/`plt_`, grid) → Container (`con_`) → contents (entity + quantity).
 - **Audit event** for every mutation: object ID, actor, action, field-level diff.
 - **Archive:** `archivedAt` + `archiveReason` ∈ `made_in_error | retired | expended | shipped | contaminated | expired | missing | other`.
 
